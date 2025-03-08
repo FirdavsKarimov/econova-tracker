@@ -9,37 +9,38 @@ import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import PrivateRoute from "./components/PrivateRoute";
 import { useEffect } from "react";
-import { supabase } from "./lib/supabase";
+import { checkConnection } from "./lib/mongodb";
 import { toast } from "@/components/ui/use-toast";
 
 const queryClient = new QueryClient();
 
 const App = () => {
-  // Setup Supabase tables on initial load
+  // Setup MongoDB connection on initial load
   useEffect(() => {
-    const setupSupabase = async () => {
+    const setupMongoDB = async () => {
       try {
-        // This would typically be done in migrations or via the Supabase dashboard
-        console.log('Checking Supabase connection...');
-        const { data, error } = await supabase.from('expenses').select('count').single();
-        
-        if (error) {
-          if (error.code === 'PGRST116') {
-            console.log('Tables might need to be created in Supabase dashboard');
-          } else if (error.message.includes('supabaseUrl is required')) {
-            console.warn('Running in development mode without Supabase configuration');
-          } else {
-            console.error('Supabase error:', error);
-          }
+        const connected = await checkConnection();
+        if (connected) {
+          console.log('Successfully connected to MongoDB');
         } else {
-          console.log('Successfully connected to Supabase');
+          console.warn('Running in development mode without MongoDB connection');
+          toast({
+            title: "Database Connection",
+            description: "Unable to connect to MongoDB. Using mock data.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
-        console.error('Error during Supabase setup:', error);
+        console.error('Error during MongoDB setup:', error);
+        toast({
+          title: "Database Error",
+          description: "Failed to connect to the database. Using mock data.",
+          variant: "destructive",
+        });
       }
     };
 
-    setupSupabase();
+    setupMongoDB();
   }, []);
 
   return (

@@ -7,7 +7,8 @@ import {
   goals as mockGoals 
 } from '../data/mockData';
 import { toast } from "@/components/ui/use-toast";
-import { supabase } from '@/lib/supabase';
+import { getCollection, checkConnection } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 interface FinanceContextType {
   expenses: Expense[];
@@ -30,84 +31,81 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<any>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
 
-  // Get current user and subscribe to auth changes
+  // Check MongoDB connection on initial load
   useEffect(() => {
-    const getCurrentUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+    const setupMongoDB = async () => {
+      try {
+        const connected = await checkConnection();
+        setIsConnected(connected);
+        
+        if (connected) {
+          refreshData();
+        } else {
+          // If not connected, use mock data
+          setExpenses(mockExpenses);
+          setBudgets(mockBudgets);
+          setGoals(mockGoals);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error during MongoDB setup:', error);
+        // Use mock data if there's an error
+        setExpenses(mockExpenses);
+        setBudgets(mockBudgets);
+        setGoals(mockGoals);
+        setLoading(false);
+      }
     };
 
-    getCurrentUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user || null);
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    setupMongoDB();
   }, []);
 
-  // Load data from Supabase when user changes
-  useEffect(() => {
-    if (user) {
-      refreshData();
-    } else {
-      // If no user, use mock data (for development purposes)
-      setExpenses(mockExpenses);
-      setBudgets(mockBudgets);
-      setGoals(mockGoals);
-      setLoading(false);
-    }
-  }, [user]);
-
-  // Fetch all financial data from Supabase
+  // Fetch all financial data from MongoDB
   const refreshData = async () => {
-    if (!user) return;
-    
     setLoading(true);
     try {
       // Get expenses
-      const { data: expenseData, error: expenseError } = await supabase
-        .from('expenses')
-        .select('*')
-        .order('date', { ascending: false });
+      const expensesCollection = await getCollection('expenses');
+      const expenseData = await expensesCollection.find({}).toArray();
       
-      if (expenseError) {
-        console.error('Error fetching expenses:', expenseError);
-        // If table doesn't exist yet, use mock data
-        setExpenses(mockExpenses);
-      } else {
-        setExpenses(expenseData || []);
-      }
+      // Convert MongoDB _id to string id for frontend compatibility
+      const formattedExpenses = expenseData.map(expense => ({
+        id: expense._id.toString(),
+        amount: expense.amount,
+        category: expense.category,
+        description: expense.description,
+        date: expense.date
+      }));
+      
+      setExpenses(formattedExpenses || []);
 
       // Get budgets
-      const { data: budgetData, error: budgetError } = await supabase
-        .from('budgets')
-        .select('*');
+      const budgetsCollection = await getCollection('budgets');
+      const budgetData = await budgetsCollection.find({}).toArray();
       
-      if (budgetError) {
-        console.error('Error fetching budgets:', budgetError);
-        // If table doesn't exist yet, use mock data
-        setBudgets(mockBudgets);
-      } else {
-        setBudgets(budgetData || []);
-      }
+      const formattedBudgets = budgetData.map(budget => ({
+        category: budget.category,
+        limit: budget.limit,
+        spent: budget.spent
+      }));
+      
+      setBudgets(formattedBudgets.length ? formattedBudgets : mockBudgets);
 
       // Get goals
-      const { data: goalData, error: goalError } = await supabase
-        .from('goals')
-        .select('*');
+      const goalsCollection = await getCollection('goals');
+      const goalData = await goalsCollection.find({}).toArray();
       
-      if (goalError) {
-        console.error('Error fetching goals:', goalError);
-        // If table doesn't exist yet, use mock data
-        setGoals(mockGoals);
-      } else {
-        setGoals(goalData || []);
-      }
+      const formattedGoals = goalData.map(goal => ({
+        id: goal._id.toString(),
+        name: goal.name,
+        targetAmount: goal.targetAmount,
+        currentAmount: goal.currentAmount,
+        deadline: goal.deadline
+      }));
+      
+      setGoals(formattedGoals.length ? formattedGoals : mockGoals);
     } catch (error) {
       console.error('Error fetching data:', error);
       // Use mock data if there's an error
@@ -123,19 +121,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addExpense = async (expense: Omit<Expense, 'id'>) => {
     const newExpense = {
       ...expense,
-      id: Date.now().toString(),
-      user_id: user?.id || 'anonymous',
+      date: expense.date || new Date().toISOString(),
     };
     
-    if (user) {
+    if (isConnected) {
       try {
-        const { error } = await supabase
-          .from('expenses')
-          .insert(newExpense);
+        const expensesCollection = await getCollection('expenses');
+        const result = await expensesCollection.insertOne(newExpense);
         
-        if (error) throw error;
+        const insertedExpense = {
+          ...newExpense,
+          id: result.insertedId.toString()
+        };
         
-        await refreshData();
+        setExpenses(prev => [insertedExpense, ...prev]);
       } catch (error) {
         console.error('Error adding expense:', error);
         toast({
@@ -147,7 +146,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } else {
       // Offline mode using state
-      setExpenses(prev => [newExpense, ...prev]);
+      const mockId = Date.now().toString();
+      setExpenses(prev => [{...newExpense, id: mockId}, ...prev]);
     }
     
     // Update the budget for the category
@@ -180,46 +180,38 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Update a budget
   const updateBudget = async (category: string, limit: number, spent?: number) => {
-    if (user) {
+    if (isConnected) {
       try {
+        const budgetsCollection = await getCollection('budgets');
+        
         const updatedBudget = { 
           category, 
           limit,
           spent: spent !== undefined ? spent : budgets.find(b => b.category === category)?.spent || 0,
-          user_id: user.id,
         };
         
         // Check if budget exists
-        const { data, error: fetchError } = await supabase
-          .from('budgets')
-          .select('*')
-          .eq('category', category)
-          .eq('user_id', user.id)
-          .single();
+        const existingBudget = await budgetsCollection.findOne({ category });
         
-        if (fetchError && fetchError.code !== 'PGRST116') {
-          throw fetchError;
-        }
-        
-        if (data) {
+        if (existingBudget) {
           // Update existing budget
-          const { error } = await supabase
-            .from('budgets')
-            .update(updatedBudget)
-            .eq('category', category)
-            .eq('user_id', user.id);
-          
-          if (error) throw error;
+          await budgetsCollection.updateOne(
+            { category }, 
+            { $set: updatedBudget }
+          );
         } else {
           // Insert new budget
-          const { error } = await supabase
-            .from('budgets')
-            .insert(updatedBudget);
-          
-          if (error) throw error;
+          await budgetsCollection.insertOne(updatedBudget);
         }
         
-        await refreshData();
+        // Update state
+        setBudgets(prev => 
+          prev.map(budget => 
+            budget.category === category 
+              ? { ...budget, limit, ...(spent !== undefined && { spent }) } 
+              : budget
+          )
+        );
       } catch (error) {
         console.error('Error updating budget:', error);
         toast({
@@ -243,21 +235,17 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Add a new goal
   const addGoal = async (goal: Omit<Goal, 'id'>) => {
-    const newGoal = {
-      ...goal,
-      id: Date.now().toString(),
-      user_id: user?.id || 'anonymous',
-    };
-    
-    if (user) {
+    if (isConnected) {
       try {
-        const { error } = await supabase
-          .from('goals')
-          .insert(newGoal);
+        const goalsCollection = await getCollection('goals');
+        const result = await goalsCollection.insertOne(goal);
         
-        if (error) throw error;
+        const insertedGoal = {
+          ...goal,
+          id: result.insertedId.toString()
+        };
         
-        await refreshData();
+        setGoals(prev => [...prev, insertedGoal]);
       } catch (error) {
         console.error('Error adding goal:', error);
         toast({
@@ -269,7 +257,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     } else {
       // Offline mode using state
-      setGoals(prev => [...prev, newGoal]);
+      const mockId = Date.now().toString();
+      setGoals(prev => [...prev, {...goal, id: mockId}]);
     }
     
     toast({
@@ -280,7 +269,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Update a goal's progress
   const updateGoal = async (id: string, amount: number) => {
-    if (user) {
+    if (isConnected) {
       try {
         const goalToUpdate = goals.find(g => g.id === id);
         if (!goalToUpdate) return;
@@ -288,17 +277,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const newAmount = goalToUpdate.currentAmount + amount;
         const isCompleted = newAmount >= goalToUpdate.targetAmount;
         
-        const { error } = await supabase
-          .from('goals')
-          .update({ 
-            currentAmount: Math.min(newAmount, goalToUpdate.targetAmount) 
+        const goalsCollection = await getCollection('goals');
+        await goalsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { currentAmount: Math.min(newAmount, goalToUpdate.targetAmount) } }
+        );
+        
+        // Update state
+        setGoals(prev => 
+          prev.map(goal => {
+            if (goal.id === id) {
+              return { 
+                ...goal, 
+                currentAmount: Math.min(newAmount, goalToUpdate.targetAmount) 
+              };
+            }
+            return goal;
           })
-          .eq('id', id)
-          .eq('user_id', user.id);
-        
-        if (error) throw error;
-        
-        await refreshData();
+        );
         
         if (isCompleted) {
           toast({
@@ -346,17 +342,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const expenseToDelete = expenses.find(e => e.id === id);
     if (!expenseToDelete) return;
     
-    if (user) {
+    if (isConnected) {
       try {
-        const { error } = await supabase
-          .from('expenses')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id);
+        const expensesCollection = await getCollection('expenses');
+        await expensesCollection.deleteOne({ _id: new ObjectId(id) });
         
-        if (error) throw error;
-        
-        await refreshData();
+        // Update state
+        setExpenses(prev => prev.filter(expense => expense.id !== id));
       } catch (error) {
         console.error('Error deleting expense:', error);
         toast({
@@ -389,17 +381,13 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const goalToDelete = goals.find(g => g.id === id);
     if (!goalToDelete) return;
     
-    if (user) {
+    if (isConnected) {
       try {
-        const { error } = await supabase
-          .from('goals')
-          .delete()
-          .eq('id', id)
-          .eq('user_id', user.id);
+        const goalsCollection = await getCollection('goals');
+        await goalsCollection.deleteOne({ _id: new ObjectId(id) });
         
-        if (error) throw error;
-        
-        await refreshData();
+        // Update state
+        setGoals(prev => prev.filter(goal => goal.id !== id));
       } catch (error) {
         console.error('Error deleting goal:', error);
         toast({

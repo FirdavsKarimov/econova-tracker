@@ -1,34 +1,52 @@
+import { checkConnection } from './mongodb';
 
-import { createClient } from '@supabase/supabase-js';
-
-// Use empty strings as fallbacks if env variables are not defined
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase credentials. Some features may not work properly.');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// This is a stub implementation to keep compatibility with components that might still use supabase
+// In a real app, you'd either fully migrate away from Supabase or properly implement both
+export const supabase = {
+  auth: {
+    getUser: async () => {
+      const isConnected = await checkConnection();
+      return {
+        data: {
+          user: isConnected ? { id: 'mongodb-user' } : null
+        },
+        error: isConnected ? null : new Error('Not connected to MongoDB')
+      };
+    },
+    onAuthStateChange: (callback: any) => {
+      // Return an object with an unsubscribe method for compatibility
+      console.log('Supabase auth state change subscription is not implemented');
+      return {
+        data: {
+          subscription: {
+            unsubscribe: () => {}
+          }
+        }
+      };
+    }
+  },
+  from: (table: string) => {
+    console.warn(`Supabase operation on table ${table} is not implemented. Use MongoDB directly.`);
+    return {
+      select: () => ({
+        single: async () => ({ data: null, error: new Error('Not implemented') }),
+        order: () => ({ data: null, error: new Error('Not implemented') })
+      }),
+      insert: async () => ({ data: null, error: new Error('Not implemented') }),
+      update: async () => ({ data: null, error: new Error('Not implemented') }),
+      delete: async () => ({ data: null, error: new Error('Not implemented') }),
+      eq: () => ({ data: null, error: new Error('Not implemented') })
+    };
+  }
+};
 
 // Helper function to get the current user
 export const getCurrentUser = async () => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    return user;
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
-  }
+  const isConnected = await checkConnection();
+  return isConnected ? { id: 'mongodb-user' } : null;
 };
 
 // Helper to check if user is authenticated
 export const isAuthenticated = async () => {
-  try {
-    const user = await getCurrentUser();
-    return !!user;
-  } catch (error) {
-    console.error('Error checking authentication:', error);
-    return false;
-  }
+  return await checkConnection();
 };

@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import PrivateRoute from "./components/PrivateRoute";
 import { useEffect } from "react";
 import { supabase } from "./lib/supabase";
+import { toast } from "@/components/ui/use-toast";
 
 const queryClient = new QueryClient();
 
@@ -17,11 +18,24 @@ const App = () => {
   // Setup Supabase tables on initial load
   useEffect(() => {
     const setupSupabase = async () => {
-      // This would typically be done in migrations or via the Supabase dashboard
-      console.log('Checking Supabase connection...');
-      const { data, error } = await supabase.from('expenses').select('count').single();
-      if (error && error.code === 'PGRST116') {
-        console.log('Tables might need to be created in Supabase dashboard');
+      try {
+        // This would typically be done in migrations or via the Supabase dashboard
+        console.log('Checking Supabase connection...');
+        const { data, error } = await supabase.from('expenses').select('count').single();
+        
+        if (error) {
+          if (error.code === 'PGRST116') {
+            console.log('Tables might need to be created in Supabase dashboard');
+          } else if (error.message.includes('supabaseUrl is required')) {
+            console.warn('Running in development mode without Supabase configuration');
+          } else {
+            console.error('Supabase error:', error);
+          }
+        } else {
+          console.log('Successfully connected to Supabase');
+        }
+      } catch (error) {
+        console.error('Error during Supabase setup:', error);
       }
     };
 

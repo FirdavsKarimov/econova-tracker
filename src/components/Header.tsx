@@ -1,130 +1,96 @@
 
 import { useState } from 'react';
-import { Bell, Menu, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetTrigger 
-} from "@/components/ui/sheet";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 
 const Header = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const isMobile = useIsMobile();
+  const [user, setUser] = useState<any>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate('/login');
+  };
+
+  const getUserInitials = () => {
+    if (!user?.email) return '?';
+    return user.email.charAt(0).toUpperCase();
+  };
 
   return (
-    <header className="w-full sticky top-0 z-10 backdrop-blur-md bg-background/80 border-b border-border px-4 py-3">
-      <div className="container mx-auto flex items-center justify-between">
-        {/* Logo and app name */}
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold">E</span>
+    <header className="sticky top-0 z-40 w-full border-b border-white/10 backdrop-blur-lg">
+      <div className="container flex h-16 items-center justify-between py-4">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="rounded-full bg-primary/20 p-1">
+            <div className="h-6 w-6 rounded-full bg-primary/80 flex items-center justify-center">
+              <span className="text-xs font-bold text-primary-foreground">E</span>
+            </div>
           </div>
-          <h1 className="text-xl font-bold text-foreground">Econova</h1>
-        </div>
+          <h1 className="text-xl font-bold tracking-tighter animate-fade-up">Econova</h1>
+        </Link>
 
-        {/* Navigation - desktop */}
-        {!isMobile && (
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#" className="text-foreground/90 hover:text-primary transition-colors">Dashboard</a>
-            <a href="#" className="text-foreground/90 hover:text-primary transition-colors">Transactions</a>
-            <a href="#" className="text-foreground/90 hover:text-primary transition-colors">Budgets</a>
-            <a href="#" className="text-foreground/90 hover:text-primary transition-colors">Goals</a>
-            <a href="#" className="text-foreground/90 hover:text-primary transition-colors">Reports</a>
-          </nav>
-        )}
-
-        {/* Actions - notifications and menu */}
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-alert"></span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[300px] p-4">
-              <h3 className="font-semibold mb-2">Notifications</h3>
-              <div className="space-y-2">
-                <DropdownMenuItem className="cursor-pointer">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Budget Alert</span>
-                    <span className="text-sm text-muted-foreground">You've exceeded your Food budget</span>
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
-                  <div className="flex flex-col">
-                    <span className="font-medium">Goal Progress</span>
-                    <span className="text-sm text-muted-foreground">You're 50% toward your Emergency Fund goal</span>
-                  </div>
-                </DropdownMenuItem>
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Mobile Menu */}
-          {isMobile && (
-            <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
+        <div className="flex items-center gap-4">
+          {user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user.user_metadata?.avatar_url} alt="Profile" />
+                    <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                  </Avatar>
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[250px]">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-semibold">Menu</h2>
-                    <Button variant="ghost" size="icon" onClick={() => setIsMenuOpen(false)}>
-                      <X className="h-5 w-5" />
-                    </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="glass-card w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.email}</p>
                   </div>
-                  <nav className="flex flex-col gap-4">
-                    <a 
-                      href="#" 
-                      className="px-2 py-2 rounded-md hover:bg-secondary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Dashboard
-                    </a>
-                    <a 
-                      href="#" 
-                      className="px-2 py-2 rounded-md hover:bg-secondary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Transactions
-                    </a>
-                    <a 
-                      href="#" 
-                      className="px-2 py-2 rounded-md hover:bg-secondary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Budgets
-                    </a>
-                    <a 
-                      href="#" 
-                      className="px-2 py-2 rounded-md hover:bg-secondary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Goals
-                    </a>
-                    <a 
-                      href="#" 
-                      className="px-2 py-2 rounded-md hover:bg-secondary transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      Reports
-                    </a>
-                  </nav>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem>
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-alert" onClick={handleSignOut}>
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <Button variant="outline" onClick={() => navigate('/login')}>
+              Sign In
+            </Button>
           )}
         </div>
       </div>

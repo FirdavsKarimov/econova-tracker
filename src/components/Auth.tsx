@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,10 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Get the intended destination from location state, or default to dashboard
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -23,7 +27,7 @@ const Auth = () => {
       try {
         const { data } = await supabase.auth.getSession();
         if (data.session) {
-          navigate('/dashboard');
+          navigate('/dashboard', { replace: true });
         }
       } catch (error) {
         console.error('Auth check error:', error);
@@ -51,7 +55,7 @@ const Auth = () => {
           title: "Success!",
           description: activeTab === 'login' ? "Logged in successfully" : "Account created successfully",
         });
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
         toast({
           title: "Authentication Error",

@@ -1,19 +1,8 @@
 
-import { FinanceProvider } from '@/context/FinanceContext';
-import Header from '@/components/Header';
-import Dashboard from '@/components/Dashboard';
+import { Navigate } from 'react-router-dom';
 
 const Index = () => {
-  return (
-    <FinanceProvider>
-      <div className="min-h-screen bg-background text-foreground flex flex-col">
-        <Header />
-        <main className="flex-grow">
-          <Dashboard />
-        </main>
-      </div>
-    </FinanceProvider>
-  );
+  return <Navigate to="/dashboard" replace />;
 };
 
 export default Index;

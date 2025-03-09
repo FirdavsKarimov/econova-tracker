@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { checkConnection } from '@/lib/mongodb';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react';
 const PrivateRoute = () => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -47,7 +48,11 @@ const PrivateRoute = () => {
     return <Outlet />;
   }
 
-  return isAuthenticated || import.meta.env.DEV ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated || import.meta.env.DEV ? (
+    <Outlet />
+  ) : (
+    <Navigate to="/login" state={{ from: location }} replace />
+  );
 };
 
 export default PrivateRoute;

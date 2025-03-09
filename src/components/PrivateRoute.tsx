@@ -42,13 +42,7 @@ const PrivateRoute = () => {
     );
   }
 
-  // In development mode, allow access to protected routes even without auth
-  if (!isAuthenticated && import.meta.env.DEV) {
-    console.warn('Allowing access to protected route in development without authentication');
-    return <Outlet />;
-  }
-
-  return isAuthenticated || import.meta.env.DEV ? (
+  return isAuthenticated ? (
     <Outlet />
   ) : (
     <Navigate to="/login" state={{ from: location }} replace />

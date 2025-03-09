@@ -2,22 +2,29 @@
 import { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { checkConnection } from '@/lib/mongodb';
+import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 const PrivateRoute = () => {
   const [loading, setLoading] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // For now, we'll just check if MongoDB is connected
-        // In a real app, you'd check user authentication here
+        // Check if we have a MongoDB connection
         const connected = await checkConnection();
-        setIsConnected(connected);
+        
+        if (connected) {
+          // If connected, we can fetch the user through our supabase stub
+          const { data } = await supabase.auth.getUser();
+          setIsAuthenticated(!!data.user);
+        } else {
+          setIsAuthenticated(false);
+        }
       } catch (error) {
-        console.error('Error checking connection:', error);
-        setIsConnected(false);
+        console.error('Error checking authentication:', error);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -35,14 +42,12 @@ const PrivateRoute = () => {
   }
 
   // In development mode, allow access to protected routes even without auth
-  if (!isConnected && import.meta.env.DEV) {
+  if (!isAuthenticated && import.meta.env.DEV) {
     console.warn('Allowing access to protected route in development without authentication');
     return <Outlet />;
   }
 
-  // For simplicity in this demo, we'll always allow access if connected to MongoDB
-  // In a real app, you'd check if the user is authenticated
-  return isConnected || import.meta.env.DEV ? <Outlet /> : <Navigate to="/login" replace />;
+  return isAuthenticated || import.meta.env.DEV ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
 export default PrivateRoute;

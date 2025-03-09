@@ -36,6 +36,7 @@ const Header = () => {
   }, []);
 
   const handleSignOut = async () => {
+    // Use the supabase.auth.signOut method that we've now implemented in our stub
     await supabase.auth.signOut();
     navigate('/login');
   };

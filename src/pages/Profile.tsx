@@ -44,6 +44,7 @@ const Profile = () => {
 
     setIsSaving(true);
     try {
+      // This is now implemented in our stub
       const { error } = await supabase.auth.updateUser({
         data: { full_name: fullName }
       });

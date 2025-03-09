@@ -67,8 +67,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLoading(true);
     try {
       // Get expenses
-      const expensesCollection = await getCollection('expenses');
-      const expenseData = await expensesCollection.find({}).toArray();
+      const expensesCollection = await getCollection();
+      const expenseData = await expensesCollection.find().toArray();
       
       // Convert MongoDB _id to string id for frontend compatibility
       const formattedExpenses = expenseData.map(expense => ({
@@ -82,8 +82,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setExpenses(formattedExpenses || []);
 
       // Get budgets
-      const budgetsCollection = await getCollection('budgets');
-      const budgetData = await budgetsCollection.find({}).toArray();
+      const budgetsCollection = await getCollection();
+      const budgetData = await budgetsCollection.find().toArray();
       
       const formattedBudgets = budgetData.map(budget => ({
         category: budget.category,
@@ -94,8 +94,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setBudgets(formattedBudgets.length ? formattedBudgets : mockBudgets);
 
       // Get goals
-      const goalsCollection = await getCollection('goals');
-      const goalData = await goalsCollection.find({}).toArray();
+      const goalsCollection = await getCollection();
+      const goalData = await goalsCollection.find().toArray();
       
       const formattedGoals = goalData.map(goal => ({
         id: goal._id.toString(),
@@ -126,8 +126,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (isConnected) {
       try {
-        const expensesCollection = await getCollection('expenses');
-        const result = await expensesCollection.insertOne(newExpense);
+        const expensesCollection = await getCollection();
+        const result = await expensesCollection.insertOne();
         
         const insertedExpense = {
           ...newExpense,
@@ -182,7 +182,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const updateBudget = async (category: string, limit: number, spent?: number) => {
     if (isConnected) {
       try {
-        const budgetsCollection = await getCollection('budgets');
+        const budgetsCollection = await getCollection();
         
         const updatedBudget = { 
           category, 
@@ -191,17 +191,14 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         };
         
         // Check if budget exists
-        const existingBudget = await budgetsCollection.findOne({ category });
+        const existingBudget = await budgetsCollection.findOne();
         
         if (existingBudget) {
           // Update existing budget
-          await budgetsCollection.updateOne(
-            { category }, 
-            { $set: updatedBudget }
-          );
+          await budgetsCollection.updateOne();
         } else {
           // Insert new budget
-          await budgetsCollection.insertOne(updatedBudget);
+          await budgetsCollection.insertOne();
         }
         
         // Update state
@@ -237,8 +234,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const addGoal = async (goal: Omit<Goal, 'id'>) => {
     if (isConnected) {
       try {
-        const goalsCollection = await getCollection('goals');
-        const result = await goalsCollection.insertOne(goal);
+        const goalsCollection = await getCollection();
+        const result = await goalsCollection.insertOne();
         
         const insertedGoal = {
           ...goal,
@@ -277,11 +274,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         const newAmount = goalToUpdate.currentAmount + amount;
         const isCompleted = newAmount >= goalToUpdate.targetAmount;
         
-        const goalsCollection = await getCollection('goals');
-        await goalsCollection.updateOne(
-          { _id: new ObjectId(id) },
-          { $set: { currentAmount: Math.min(newAmount, goalToUpdate.targetAmount) } }
-        );
+        const goalsCollection = await getCollection();
+        await goalsCollection.updateOne();
         
         // Update state
         setGoals(prev => 
@@ -344,8 +338,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (isConnected) {
       try {
-        const expensesCollection = await getCollection('expenses');
-        await expensesCollection.deleteOne({ _id: new ObjectId(id) });
+        const expensesCollection = await getCollection();
+        await expensesCollection.deleteOne();
         
         // Update state
         setExpenses(prev => prev.filter(expense => expense.id !== id));
@@ -383,8 +377,8 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     if (isConnected) {
       try {
-        const goalsCollection = await getCollection('goals');
-        await goalsCollection.deleteOne({ _id: new ObjectId(id) });
+        const goalsCollection = await getCollection();
+        await goalsCollection.deleteOne();
         
         // Update state
         setGoals(prev => prev.filter(goal => goal.id !== id));

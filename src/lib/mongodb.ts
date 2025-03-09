@@ -13,11 +13,11 @@ const mockMongoClient = {
   },
   db: (dbName: string) => ({
     collection: (collectionName: string) => ({
-      find: () => ({ toArray: async () => [] }),
-      findOne: async () => null,
-      insertOne: async () => ({ insertedId: 'mock-id' }),
-      updateOne: async () => ({ modifiedCount: 1 }),
-      deleteOne: async () => ({ deletedCount: 1 }),
+      find: (query = {}) => ({ toArray: async () => [] }),
+      findOne: async (query = {}) => null,
+      insertOne: async (doc = {}) => ({ insertedId: 'mock-id' }),
+      updateOne: async (filter = {}, update = {}) => ({ modifiedCount: 1 }),
+      deleteOne: async (filter = {}) => ({ deletedCount: 1 }),
     }),
   }),
   close: async () => console.log('Mock MongoDB client closed'),
@@ -42,24 +42,24 @@ export const getDatabase = async () => {
   console.log('Getting database instance');
   return {
     collection: (collectionName: string) => ({
-      find: () => ({ toArray: async () => [] }),
-      findOne: async () => null,
-      insertOne: async () => ({ insertedId: 'mock-id' }),
-      updateOne: async () => ({ modifiedCount: 1 }),
-      deleteOne: async () => ({ deletedCount: 1 }),
+      find: (query = {}) => ({ toArray: async () => [] }),
+      findOne: async (query = {}) => null,
+      insertOne: async (doc = {}) => ({ insertedId: 'mock-id' }),
+      updateOne: async (filter = {}, update = {}) => ({ modifiedCount: 1 }),
+      deleteOne: async (filter = {}) => ({ deletedCount: 1 }),
     }),
   };
 };
 
 // Helper function to get a collection
-export const getCollection = async (collectionName: string) => {
+export const getCollection = async (collectionName = 'default') => {
   console.log(`Getting collection: ${collectionName}`);
   return {
-    find: () => ({ toArray: async () => [] }),
-    findOne: async () => null,
-    insertOne: async () => ({ insertedId: 'mock-id' }),
-    updateOne: async () => ({ modifiedCount: 1 }),
-    deleteOne: async () => ({ deletedCount: 1 }),
+    find: (query = {}) => ({ toArray: async () => [] }),
+    findOne: async (query = {}) => null,
+    insertOne: async (doc = {}) => ({ insertedId: 'mock-id' }),
+    updateOne: async (filter = {}, update = {}) => ({ modifiedCount: 1 }),
+    deleteOne: async (filter = {}) => ({ deletedCount: 1 }),
   };
 };
 
